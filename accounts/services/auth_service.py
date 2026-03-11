@@ -1,4 +1,6 @@
 import hashlib
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from django.utils import timezone
 from django.conf import settings
@@ -177,3 +179,49 @@ class AuthService:
 
         return user
     
+    # ==============================================
+    # Google Login
+    # ==============================================
+    @staticmethod
+    def google_login(token):
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID
+            )
+
+        except ValueError:
+            raise ValidationError("Invalid Google token")
+
+        email = idinfo.get("email")
+        name = idinfo.get("name")
+        avatar = idinfo.get("picture")
+
+        if not email:
+            raise ValidationError("Google account has no email")
+
+        username = name.replace(" ", "").lower()
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": username,
+                "avatar": avatar,
+                "is_verified": True
+            }
+        )
+
+        if not user.avatar and avatar:
+            user.avatar = avatar
+            user.save(update_fields=["avatar"])
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "user": user,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
+        }
+        

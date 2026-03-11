@@ -145,7 +145,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Custom user manager
     objects = UserManager()
 
-
     # -----------------------------------------------------
     # DATABASE INDEX CONFIGURATION
     # -----------------------------------------------------
