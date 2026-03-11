@@ -240,6 +240,7 @@ SENDGRID_EMAIL_VERIFICATION_TEMPLATE_ID = os.getenv(
 # -------------------------------------------------
 FRONTEND_URL = os.getenv(
     "FRONTEND_URL",
+    "http://localhost:5173",
     "https://api-ecosystem.vercel.app"
 )
 
