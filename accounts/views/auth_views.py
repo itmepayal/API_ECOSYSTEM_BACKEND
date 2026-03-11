@@ -10,7 +10,8 @@ from accounts.serializers.auth_serializer import (
     VerifyEmailSerializer,
     ChangePasswordSerializer,
     ResetPasswordSerializer,
-    ForgotPasswordSerializer
+    ForgotPasswordSerializer,
+    GoogleLoginSerializer
 )
 
 from accounts.serializers.user_serializer import UserSerializer
@@ -200,3 +201,34 @@ class ChangePasswordView(BaseAPIView):
         return self.success_response(
             message="Password changed successfully"
         )
+
+
+# =========================================================
+# Goggle Login
+# =========================================================
+class GoogleLoginView(BaseAPIView):
+    """
+    Authenticate user via Google OAuth
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthThrottle]
+
+    def post(self, request):
+
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = AuthService.google_login(
+            serializer.validated_data["token"]
+        )
+
+        return self.success_response(
+            message="Google login successful",
+            data={
+                "user": UserSerializer(result["user"]).data,
+                "access_token": result["access"],
+                "refresh_token": result["refresh"]
+            }
+        )
+        

@@ -9,4 +9,5 @@ __pycache__/
 .env.local
 .env.example
 env/
+
 venv/

@@ -160,3 +160,12 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(
         min_length=8
     )
+
+# =========================================================
+# Google Login Serializer
+# =========================================================
+class GoogleLoginSerializer(serializers.Serializer):
+    """
+    Serializer for Google login
+    """
+    token = serializers.CharField(required=True)
