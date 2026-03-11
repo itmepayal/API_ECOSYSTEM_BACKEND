@@ -31,12 +31,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-secret-key")
 
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.getenv(
-    "ALLOWED_HOSTS",
-    "127.0.0.1,localhost,.vercel.app",
-    "api-ecosystem.up.railway.app",
-).split(",")
-
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 # -------------------------------------------------
 # Applications
 # -------------------------------------------------
