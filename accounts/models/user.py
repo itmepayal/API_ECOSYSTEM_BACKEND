@@ -7,7 +7,13 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 
 from accounts.managers.user_manager import UserManager
-from core.constants import ROLE_CHOICES, ROLE_USER
+from core.constants import (
+    ROLE_CHOICES, 
+    ROLE_USER, 
+    LOGIN_EMAIL, 
+    LOGIN_GOOGLE, 
+    LOGIN_TYPE_CHOICES
+)
 
 # =========================================================
 # User Model
@@ -40,7 +46,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Optional profile picture
     avatar = models.URLField(blank=True, null=True)
-
+    
+    # Login method (email / google)
+    login_type = models.CharField(
+        max_length=20,
+        choices=LOGIN_TYPE_CHOICES,
+        default=LOGIN_EMAIL
+    )
 
     # -----------------------------------------------------
     # ROLE BASED ACCESS CONTROL
