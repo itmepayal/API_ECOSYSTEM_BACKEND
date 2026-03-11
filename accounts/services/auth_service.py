@@ -197,6 +197,9 @@ class AuthService:
                 settings.GOOGLE_CLIENT_ID
             )
 
+            if idinfo["aud"] != settings.GOOGLE_CLIENT_ID:
+                raise ValidationError("Invalid audience")
+
         except ValueError:
             raise ValidationError("Invalid Google token")
 
@@ -207,7 +210,8 @@ class AuthService:
         if not email:
             raise ValidationError("Google account has no email")
 
-        username = name.replace(" ", "").lower()
+        import uuid
+        username = f"{name.replace(' ', '').lower()}_{uuid.uuid4().hex[:6]}"
 
         user, created = User.objects.get_or_create(
             email=email,
@@ -218,7 +222,7 @@ class AuthService:
                 "login_type": LOGIN_GOOGLE
             }
         )
-        
+
         if not created and user.login_type != LOGIN_GOOGLE:
             user.login_type = LOGIN_GOOGLE
             user.save(update_fields=["login_type"])
@@ -234,4 +238,3 @@ class AuthService:
             "access": str(refresh.access_token),
             "refresh": str(refresh)
         }
-        
