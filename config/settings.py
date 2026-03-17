@@ -253,7 +253,7 @@ CORS_ALLOW_CREDENTIALS = True
 if ENVIRONMENT == "development":
 
     CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
+        "http://localhost:3000",
         "http://127.0.0.1:5173",
     ]
 
@@ -261,12 +261,12 @@ else:
 
     CORS_ALLOWED_ORIGINS = [
         FRONTEND_URL,
-        "http://localhost:5173",
+        "http://localhost:3000",
     ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://api-ecosystem.vercel.app",
-    "http://localhost:5173",
+    "http://localhost:3000",
 ]
 
 # -------------------------------------------------

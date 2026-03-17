@@ -189,6 +189,8 @@ class AuthService:
     # ==============================================
     @staticmethod
     def google_login(token):
+        
+        print("GOOGLE TOKEN:", token)
 
         try:
             idinfo = id_token.verify_oauth2_token(
