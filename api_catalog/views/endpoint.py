@@ -1,81 +1,84 @@
-from rest_framework import status
+from rest_framework import status, filters
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+
 from core.api.base_view import BaseAPIView
-from api_catalog.models import APICategory
-from api_catalog.serializers import APICategorySerializer
-from django.shortcuts import get_object_or_404
+from api_catalog.models.endpoint import APIEndpoint
+from api_catalog.serializers.endpoint import APIEndpointSerializer
 
-class APICategoryListCreateView(BaseAPIView):
-    def get(self, request, *args, **kwargs):
-        categories = APICategory.objects.all()
-        serializer = APICategorySerializer(categories, many=True)
+class APIEndpointListCreateView(BaseAPIView, ListCreateAPIView):
+    queryset = APIEndpoint.objects.select_related("category").all()
+    serializer_class = APIEndpointSerializer
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["name", "method", "is_public", "category"]
+    search_fields = ["name", "description", "endpoint"]
+    ordering_fields = ["name", "created_at", "rate_limit"]
+    ordering = ["name"]
+
+    def list(self, request, *args, **kwargs):
+        res = super().list(request, *args, **kwargs)
+
+        if isinstance(res.data, dict):
+            data = res.data.get("results", [])
+            meta = {
+                "count": res.data.get("count"),
+                "next": res.data.get("next"),
+                "previous": res.data.get("previous"),
+            }
+        else:
+            data = res.data
+            meta = None
+
         return self.success_response(
-            message="API Categories fetched successfully",
-            data=serializer.data,
+            message="API Endpoints fetched successfully",
+            data=data,
+            meta=meta
         )
 
-    def post(self, request, *args, **kwargs):
-        serializer = APICategorySerializer(data=request.data)
-        if serializer.is_valid():
-            category = serializer.save()
-            return self.success_response(
-                message="API Category created successfully",
-                data=APICategorySerializer(category).data,
-                status_code=status.HTTP_201_CREATED,
-            )
-        return self.error_response(
-            message="API Category creation failed",
-            errors=serializer.errors,
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
+    def create(self, request, *args, **kwargs):
+        res = super().create(request, *args, **kwargs)
 
-class APICategoryDetailView(BaseAPIView):
-
-    def get_object(self, pk):
-        return get_object_or_404(APICategory, pk=pk)
-
-    def get(self, request, pk, *args, **kwargs):
-        category = self.get_object(pk)
-        serializer = APICategorySerializer(category)
         return self.success_response(
-            message="Category fetched successfully",
-            data=serializer.data,
+            message="API Endpoint created successfully",
+            data=res.data,
+            status_code=res.status_code
         )
 
-    def put(self, request, pk, *args, **kwargs):
-        category = self.get_object(pk)
-        serializer = APICategorySerializer(category, data=request.data)
-        if serializer.is_valid():
-            category = serializer.save()
-            return self.success_response(
-                message="Category updated successfully",
-                data=APICategorySerializer(category).data,
-            )
-        return self.error_response(
-            message="Category update failed",
-            errors=serializer.errors,
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
 
-    def patch(self, request, pk, *args, **kwargs):
-        category = self.get_object(pk)
-        serializer = APICategorySerializer(category, data=request.data, partial=True)
-        if serializer.is_valid():
-            category = serializer.save()
-            return self.success_response(
-                message="Category partially updated successfully",
-                data=APICategorySerializer(category).data,
-            )
-        return self.error_response(
-            message="Partial update failed",
-            errors=serializer.errors,
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
+class APIEndpointDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
+    queryset = APIEndpoint.objects.select_related("category").all()
+    serializer_class = APIEndpointSerializer
 
-    def delete(self, request, pk, *args, **kwargs):
-        category = self.get_object(pk)
-        category.delete()
+    def retrieve(self, request, *args, **kwargs):
+        res = super().retrieve(request, *args, **kwargs)
+
         return self.success_response(
-            message="Category deleted successfully",
+            message="API Endpoint fetched successfully",
+            data=res.data
+        )
+
+    def update(self, request, *args, **kwargs):
+        res = super().update(request, *args, **kwargs)
+
+        return self.success_response(
+            message="API Endpoint updated successfully",
+            data=res.data
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        res = super().partial_update(request, *args, **kwargs)
+
+        return self.success_response(
+            message="API Endpoint partially updated successfully",
+            data=res.data
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+
+        return self.success_response(
+            message="API Endpoint deleted successfully",
             data=None,
-            status_code=status.HTTP_204_NO_CONTENT,
+            status_code=status.HTTP_204_NO_CONTENT
         )

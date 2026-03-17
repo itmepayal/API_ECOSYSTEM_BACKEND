@@ -22,6 +22,11 @@ urlpatterns = [
         include(("api_catalog.urls", "api_catalog"), namespace="api-catalog")
     ),
     
+    path(
+        "api/v1/playground/",
+        include(("playground.urls", "playground"), namespace="playground")
+    ),
+    
     # API Schema
     path(
         "api/v1/schema/",
