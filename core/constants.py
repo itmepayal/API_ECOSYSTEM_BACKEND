@@ -9,7 +9,6 @@ ROLE_CHOICES = [
     (ROLE_USER, "User"),
 ]
 
-
 # ==========================
 # LOGIN TYPE CONSTANTS
 # ==========================
@@ -19,4 +18,19 @@ LOGIN_GOOGLE = "GOOGLE"
 LOGIN_TYPE_CHOICES = [
     (LOGIN_EMAIL, "Email"),
     (LOGIN_GOOGLE, "Google"),
+]
+
+# ==========================
+# HTTP METHOD CONSTANTS
+# ==========================
+METHOD_GET = "GET"
+METHOD_POST = "POST"
+METHOD_PUT = "PUT"
+METHOD_DELETE = "DELETE"
+
+METHOD_CHOICES = [
+    (METHOD_GET, "GET"),
+    (METHOD_POST, "POST"),
+    (METHOD_PUT, "PUT"),
+    (METHOD_DELETE, "DELETE"),
 ]

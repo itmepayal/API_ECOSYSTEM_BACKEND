@@ -1,3 +1,4 @@
+import uuid
 import secrets
 import hashlib
 from datetime import timedelta
@@ -7,6 +8,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 
 from accounts.managers.user_manager import UserManager
+
+from core.models.base import BaseModel
 from core.constants import (
     ROLE_CHOICES, 
     ROLE_USER, 
@@ -18,7 +21,7 @@ from core.constants import (
 # =========================================================
 # User Model
 # =========================================================
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     """
     Custom User model used for authentication and user management.
 
@@ -223,4 +226,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         # Return raw token (used in email verification or reset links)
         return raw_token
+    
+
+
+class APIKey(BaseModel):
+    """API keys for accessing endpoints."""
+    key = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_keys")
+    usage_limit = models.IntegerField(default=1000)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.key}"
     

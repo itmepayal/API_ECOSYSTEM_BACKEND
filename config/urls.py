@@ -16,7 +16,12 @@ urlpatterns = [
         "api/v1/accounts/",
         include(("accounts.urls", "accounts"), namespace="accounts")
     ),
-
+    
+    path(
+        "api/v1/api-catalog/",
+        include(("api_catalog.urls", "api_catalog"), namespace="api-catalog")
+    ),
+    
     # API Schema
     path(
         "api/v1/schema/",

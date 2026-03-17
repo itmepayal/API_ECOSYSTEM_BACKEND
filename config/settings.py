@@ -52,6 +52,9 @@ INSTALLED_APPS = [
 
     # Local Apps
     "accounts",
+    "api_catalog",
+    "playground",
+    "request_logs",
 ]
 
 # -------------------------------------------------
@@ -103,7 +106,6 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # -------------------------------------------------
 if ENVIRONMENT == "production":
-
     DATABASES = {
         "default": dj_database_url.parse(
             os.getenv("DATABASE_URL"),
@@ -113,7 +115,6 @@ if ENVIRONMENT == "production":
     }
 
 else:
-
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
