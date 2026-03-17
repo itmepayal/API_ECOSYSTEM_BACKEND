@@ -12,6 +12,7 @@ from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from accounts.models import User
 from accounts.selectors.user_selector import get_user_by_email
 
+from core.constants import LOGIN_EMAIL, LOGIN_GOOGLE
 from core.email.send_email import send_email
 
 
@@ -26,7 +27,8 @@ class AuthService:
         user = User.objects.create_user(
             email=email,
             username=username,
-            password=password
+            password=password,
+            login_type=LOGIN_EMAIL
         )
 
         raw_token = user.generate_token(
@@ -89,6 +91,9 @@ class AuthService:
 
         if not user:
             raise AuthenticationFailed("Invalid credentials")
+        
+        if user.login_type == LOGIN_GOOGLE:
+            raise AuthenticationFailed("Please login using Google")
 
         if not user.is_verified:
             raise AuthenticationFailed("Email not verified")
@@ -184,6 +189,8 @@ class AuthService:
     # ==============================================
     @staticmethod
     def google_login(token):
+        
+        print("GOOGLE TOKEN:", token)
 
         try:
             idinfo = id_token.verify_oauth2_token(
@@ -191,6 +198,9 @@ class AuthService:
                 requests.Request(),
                 settings.GOOGLE_CLIENT_ID
             )
+
+            if idinfo["aud"] != settings.GOOGLE_CLIENT_ID:
+                raise ValidationError("Invalid audience")
 
         except ValueError:
             raise ValidationError("Invalid Google token")
@@ -202,16 +212,22 @@ class AuthService:
         if not email:
             raise ValidationError("Google account has no email")
 
-        username = name.replace(" ", "").lower()
+        import uuid
+        username = f"{name.replace(' ', '').lower()}_{uuid.uuid4().hex[:6]}"
 
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
                 "username": username,
                 "avatar": avatar,
-                "is_verified": True
+                "is_verified": True,
+                "login_type": LOGIN_GOOGLE
             }
         )
+
+        if not created and user.login_type != LOGIN_GOOGLE:
+            user.login_type = LOGIN_GOOGLE
+            user.save(update_fields=["login_type"])
 
         if not user.avatar and avatar:
             user.avatar = avatar
@@ -224,4 +240,3 @@ class AuthService:
             "access": str(refresh.access_token),
             "refresh": str(refresh)
         }
-        

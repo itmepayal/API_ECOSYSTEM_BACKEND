@@ -17,7 +17,6 @@ from accounts.serializers.auth_serializer import (
 from accounts.serializers.user_serializer import UserSerializer
 from accounts.services.auth_service import AuthService
 
-
 # =========================================================
 # User Registration
 # =========================================================
@@ -83,7 +82,6 @@ class LoginView(BaseAPIView):
                 "refresh_token": result["refresh"]
             }
         )
-
 
 # =========================================================
 # Email Verification

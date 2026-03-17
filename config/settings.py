@@ -31,11 +31,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-secret-key")
 
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.getenv(
-    "ALLOWED_HOSTS",
-    "127.0.0.1,localhost,.vercel.app"
-).split(",")
-
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 # -------------------------------------------------
 # Applications
 # -------------------------------------------------
@@ -53,9 +49,13 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
+    "django_filters",
 
     # Local Apps
     "accounts",
+    "api_catalog",
+    "playground",
+    "request_logs",
 ]
 
 # -------------------------------------------------
@@ -64,6 +64,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -104,7 +107,6 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # -------------------------------------------------
 if ENVIRONMENT == "production":
-
     DATABASES = {
         "default": dj_database_url.parse(
             os.getenv("DATABASE_URL"),
@@ -114,7 +116,6 @@ if ENVIRONMENT == "production":
     }
 
 else:
-
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -154,8 +155,10 @@ USE_TZ = True
 # -------------------------------------------------
 # Static Files
 # -------------------------------------------------
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # -------------------------------------------------
 # Custom User Model
@@ -180,6 +183,15 @@ REST_FRAMEWORK = {
 
     "DEFAULT_SCHEMA_CLASS":
         "drf_spectacular.openapi.AutoSchema",
+
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
 
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
@@ -246,18 +258,27 @@ FRONTEND_URL = os.getenv(
 # -------------------------------------------------
 # CORS
 # -------------------------------------------------
+
+CORS_ALLOW_CREDENTIALS = True
+
 if ENVIRONMENT == "development":
 
     CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
+        "http://localhost:3000",
         "http://127.0.0.1:5173",
     ]
 
 else:
 
     CORS_ALLOWED_ORIGINS = [
-        FRONTEND_URL
+        FRONTEND_URL,
+        "http://localhost:3000",
     ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://api-ecosystem.vercel.app",
+    "http://localhost:3000",
+]
 
 # -------------------------------------------------
 # OpenAPI / Swagger
