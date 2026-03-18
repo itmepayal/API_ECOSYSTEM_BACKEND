@@ -1,4 +1,6 @@
 import hashlib
+import uuid
+
 from google.oauth2 import id_token
 from google.auth.transport import requests
 
@@ -17,6 +19,29 @@ from core.email.send_email import send_email
 
 
 class AuthService:
+
+    # =====================================================
+    # INTERNAL HELPERS 
+    # =====================================================
+    @staticmethod
+    def _validate_token(token: str):
+        """
+        Ensures token is valid and not garbage input.
+        """
+        if not token or not isinstance(token, str):
+            raise ValidationError("Invalid token")
+
+        if token in ["undefined", "null", ""]:
+            raise ValidationError("Invalid token")
+
+        if len(token) < 20:  
+            raise ValidationError("Invalid token format")
+
+        return token.strip()
+
+    @staticmethod
+    def _hash_token(token: str):
+        return hashlib.sha256(token.encode()).hexdigest()
 
     # =====================================================
     # Register User
@@ -52,14 +77,14 @@ class AuthService:
 
         return user
 
-
     # =====================================================
     # Verify Email
     # =====================================================
     @staticmethod
     def verify_email(token):
 
-        hashed_token = hashlib.sha256(token.encode()).hexdigest()
+        token = AuthService._validate_token(token)
+        hashed_token = AuthService._hash_token(token)
 
         user = User.objects.filter(
             email_verification_token=hashed_token,
@@ -80,7 +105,6 @@ class AuthService:
 
         return user
 
-
     # =====================================================
     # Login User
     # =====================================================
@@ -91,7 +115,7 @@ class AuthService:
 
         if not user:
             raise AuthenticationFailed("Invalid credentials")
-        
+
         if user.login_type == LOGIN_GOOGLE:
             raise AuthenticationFailed("Please login using Google")
 
@@ -109,7 +133,6 @@ class AuthService:
             "refresh": str(refresh)
         }
 
-
     # =====================================================
     # Forgot Password
     # =====================================================
@@ -119,7 +142,7 @@ class AuthService:
         user = get_user_by_email(email)
 
         if not user:
-            return
+            return  
 
         token = user.generate_token(
             "forgot_password_token",
@@ -141,14 +164,14 @@ class AuthService:
 
         return token
 
-
     # =====================================================
     # Reset Password
     # =====================================================
     @staticmethod
     def reset_password(token, password):
 
-        hashed = hashlib.sha256(token.encode()).hexdigest()
+        token = AuthService._validate_token(token)
+        hashed = AuthService._hash_token(token)
 
         user = User.objects.filter(
             forgot_password_token=hashed,
@@ -169,7 +192,6 @@ class AuthService:
 
         return user
 
-
     # =====================================================
     # Change Password
     # =====================================================
@@ -183,14 +205,14 @@ class AuthService:
         user.save(update_fields=["password"])
 
         return user
-    
-    # ==============================================
+
+    # =====================================================
     # Google Login
-    # ==============================================
+    # =====================================================
     @staticmethod
     def google_login(token):
-        
-        print("GOOGLE TOKEN:", token)
+
+        token = AuthService._validate_token(token)
 
         try:
             idinfo = id_token.verify_oauth2_token(
@@ -206,13 +228,12 @@ class AuthService:
             raise ValidationError("Invalid Google token")
 
         email = idinfo.get("email")
-        name = idinfo.get("name")
+        name = idinfo.get("name") or "user"
         avatar = idinfo.get("picture")
 
         if not email:
             raise ValidationError("Google account has no email")
 
-        import uuid
         username = f"{name.replace(' ', '').lower()}_{uuid.uuid4().hex[:6]}"
 
         user, created = User.objects.get_or_create(

@@ -27,6 +27,11 @@ urlpatterns = [
         include(("playground.urls", "playground"), namespace="playground")
     ),
     
+    path(
+        "api/v1/request-logs/",
+        include(("request_logs.urls", "request_logs"), namespace="request_logs")
+    ),
+    
     # API Schema
     path(
         "api/v1/schema/",

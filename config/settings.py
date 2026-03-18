@@ -106,7 +106,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 # -------------------------------------------------
 # Database
 # -------------------------------------------------
-if ENVIRONMENT == "production":
+if ENVIRONMENT != "production":
     DATABASES = {
         "default": dj_database_url.parse(
             os.getenv("DATABASE_URL"),

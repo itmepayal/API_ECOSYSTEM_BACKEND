@@ -1,12 +1,12 @@
 from rest_framework.response import Response
 
-
 def api_response(
     *,
     success: bool,
     message: str,
     data=None,
     errors=None,
+    meta=None, 
     status_code=200
 ):
     return Response(
@@ -15,6 +15,7 @@ def api_response(
             "message": message,
             "data": data,
             "errors": errors,
+            "meta": meta, 
         },
         status=status_code
     )
