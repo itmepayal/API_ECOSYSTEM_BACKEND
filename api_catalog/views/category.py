@@ -82,3 +82,4 @@ class APICategoryDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
             data=None,
             status_code=status.HTTP_204_NO_CONTENT
         )
+        
