@@ -7,6 +7,6 @@ from playground.views import (
 
 urlpatterns = [
     path("", APIPlaygroundListCreateView.as_view(), name="playground-list-create"),
-    path("<int:pk>/", APIPlaygroundDetailView.as_view(), name="playground-detail"),
-    path("<int:pk>/rerun/", APIPlaygroundRerunView.as_view(), name="playground-rerun"),
+    path("<uuid:pk>/", APIPlaygroundDetailView.as_view(), name="playground-detail"),
+    path("<uuid:pk>/rerun/", APIPlaygroundRerunView.as_view(), name="playground-rerun"),
 ]
