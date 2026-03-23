@@ -68,7 +68,6 @@ class APIPlaygroundDetailView(BaseAPIView, RetrieveDestroyAPIView):
             status_code=status.HTTP_204_NO_CONTENT
         )
 
-
 class APIPlaygroundRerunView(BaseAPIView, APIView):
 
     def post(self, request, pk):
@@ -80,14 +79,22 @@ class APIPlaygroundRerunView(BaseAPIView, APIView):
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
+        def safe_parse(value):
+            if not value:
+                return None
+            try:
+                return json.loads(value)
+            except:
+                return None
+
         serializer = APIPlaygroundSerializer(
             data={
                 "api": instance.api.id,
                 "method": instance.method,
                 "endpoint_url": instance.endpoint_url,
-                "request_body": instance.request_body,
-                "query_params": instance.query_params,
-                "request_headers": instance.request_headers,
+                "request_body": safe_parse(instance.request_body),
+                "query_params": safe_parse(instance.query_params),
+                "request_headers": safe_parse(instance.request_headers),
             },
             context={"request": request}
         )

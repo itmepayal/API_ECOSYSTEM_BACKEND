@@ -1,4 +1,5 @@
 import time
+import json
 import requests
 from rest_framework import serializers
 from playground.models import APIPlayground
@@ -20,17 +21,29 @@ class APIPlaygroundSerializer(serializers.ModelSerializer):
             "error",
         ]
 
+    def safe_parse(self, value):
+        if not value:
+            return {}
+        if isinstance(value, dict):
+            return value
+        try:
+            return json.loads(value)
+        except:
+            return {}
+
     def create(self, validated_data):
         request_obj = self.context.get("request")
 
         if request_obj and request_obj.user:
             validated_data["tested_by"] = request_obj.user
 
-        method = validated_data.get("method")
         url = validated_data.get("endpoint_url")
-        body = validated_data.get("request_body") or {}
-        params = validated_data.get("query_params") or {}
-        headers = validated_data.get("request_headers") or {}
+
+        method = validated_data.get("method")
+
+        body = self.safe_parse(validated_data.get("request_body"))
+        params = self.safe_parse(validated_data.get("query_params"))
+        headers = self.safe_parse(validated_data.get("request_headers"))
 
         try:
             start_time = time.time()
@@ -41,7 +54,7 @@ class APIPlaygroundSerializer(serializers.ModelSerializer):
                 json=body,
                 params=params,
                 headers=headers,
-                timeout=10 
+                timeout=10,
             )
 
             end_time = time.time()
@@ -49,12 +62,19 @@ class APIPlaygroundSerializer(serializers.ModelSerializer):
             validated_data["response_body"] = self._parse_response(response)
             validated_data["status_code"] = response.status_code
             validated_data["response_time"] = round(end_time - start_time, 3)
-            validated_data["headers"] = dict(response.headers)
+            validated_data["headers"] = dict(response.headers.items())
             validated_data["status"] = "success" if response.ok else "failed"
+
+        except requests.exceptions.Timeout:
+            validated_data["status"] = "failed"
+            validated_data["error"] = "Request timeout"
+            validated_data["response_body"] = {"error": "Timeout"}
+            validated_data["response_time"] = None
 
         except requests.exceptions.RequestException as e:
             validated_data["status"] = "failed"
             validated_data["error"] = str(e)
+            validated_data["response_body"] = {"error": str(e)}
             validated_data["response_time"] = None
 
         return super().create(validated_data)
@@ -64,3 +84,4 @@ class APIPlaygroundSerializer(serializers.ModelSerializer):
             return response.json()
         except Exception:
             return {"raw": response.text}
+        

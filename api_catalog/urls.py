@@ -12,7 +12,7 @@ app_name = "api_catalog"
 
 urlpatterns = [
     path("categories/", APICategoryListCreateView.as_view(), name="api-categories"),
-    path("categories/<int:pk>/", APICategoryDetailView.as_view(), name="api-category-detail"),
-    path("endpoint", APIEndpointListCreateView.as_view(), name="api-endpoints"),
-    path("endpoints/<int:pk>/", APIEndpointDetailView.as_view(), name="api-endpoint-detail"),
+    path("categories/<uuid:pk>/", APICategoryDetailView.as_view(), name="api-category-detail"),
+    path("endpoints/", APIEndpointListCreateView.as_view(), name="api-endpoints"),
+    path("endpoints/<uuid:pk>/", APIEndpointDetailView.as_view(), name="api-endpoint-detail"),
 ]

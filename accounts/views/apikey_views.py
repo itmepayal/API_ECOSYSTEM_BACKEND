@@ -1,20 +1,24 @@
 from rest_framework import status, filters
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 
 from core.api.base_view import BaseAPIView
-from api_catalog.models import APICategory
-from api_catalog.serializers import APICategorySerializer
+from accounts.models import APIKey
+from accounts.serializers import APIKeySerializer
 
-class APICategoryListCreateView(BaseAPIView, ListCreateAPIView):
-    queryset = APICategory.objects.all()
-    serializer_class = APICategorySerializer
 
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["name"]
-    search_fields = ["name", "description"]
-    ordering_fields = ["name", "created_at"]
-    ordering = ["name"]
+class APIKeyListCreateView(BaseAPIView, ListCreateAPIView):
+    serializer_class = APIKeySerializer
+    permission_classes = [IsAuthenticated]
+
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["usage_limit"]
+    ordering_fields = ["created_at", "usage_limit"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        return APIKey.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
         res = super().list(request, *args, **kwargs)
@@ -31,30 +35,39 @@ class APICategoryListCreateView(BaseAPIView, ListCreateAPIView):
             meta = None
 
         return self.success_response(
-            message="API Categories fetched successfully",
+            message="API Keys fetched successfully",
             data=data,
             meta=meta
         )
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
         res = super().create(request, *args, **kwargs)
 
         return self.success_response(
-            message="API Category created successfully",
+            message="API Key created successfully",
             data=res.data,
             status_code=res.status_code
         )
+        
+class APIKeyDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, delete API key
+    """
 
+    serializer_class = APIKeySerializer
+    permission_classes = [IsAuthenticated]
 
-class APICategoryDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
-    queryset = APICategory.objects.all()
-    serializer_class = APICategorySerializer
+    def get_queryset(self):
+        return APIKey.objects.filter(user=self.request.user)
 
     def retrieve(self, request, *args, **kwargs):
         res = super().retrieve(request, *args, **kwargs)
 
         return self.success_response(
-            message="Category fetched successfully",
+            message="API Key fetched successfully",
             data=res.data
         )
 
@@ -62,7 +75,7 @@ class APICategoryDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
         res = super().update(request, *args, **kwargs)
 
         return self.success_response(
-            message="Category updated successfully",
+            message="API Key updated successfully",
             data=res.data
         )
 
@@ -70,7 +83,7 @@ class APICategoryDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
         res = super().partial_update(request, *args, **kwargs)
 
         return self.success_response(
-            message="Category partially updated successfully",
+            message="API Key partially updated successfully",
             data=res.data
         )
 
@@ -78,7 +91,7 @@ class APICategoryDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
         super().destroy(request, *args, **kwargs)
 
         return self.success_response(
-            message="Category deleted successfully",
+            message="API Key deleted successfully",
             data=None,
             status_code=status.HTTP_204_NO_CONTENT
         )
