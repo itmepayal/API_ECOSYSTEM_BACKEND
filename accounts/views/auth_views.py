@@ -73,13 +73,26 @@ class LoginView(BaseAPIView):
         serializer.is_valid(raise_exception=True)
 
         result = AuthService.login_user(**serializer.validated_data)
+        
+        user = result["user"]
+        
+        if result["requires_2fa"]:
+            return self.success_response(
+                message="2FA required",
+                data={
+                    "requires_2fa": True,
+                    "user_id": user.id
+                }
+            )
+            
+        tokens = AuthService.generate_tokens(user)
 
         return self.success_response(
             message="Login successful",
             data={
-                "user": UserSerializer(result["user"]).data,
-                "access_token": result["access"],
-                "refresh_token": result["refresh"]
+                "user": UserSerializer(user).data,
+                "access_token": tokens["access"],
+                "refresh_token": tokens["refresh"]
             }
         )
 

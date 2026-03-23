@@ -22,35 +22,12 @@ from core.constants import (
 # User Model
 # =========================================================
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
-    """
-    Custom User model used for authentication and user management.
-
-    Features:
-    - Email based authentication
-    - Role based access control
-    - Email verification system
-    - Password reset tokens
-    - Refresh token management
-    - Two Factor Authentication (2FA)
-
-    This model extends:
-    - AbstractBaseUser for authentication
-    - PermissionsMixin for Django permissions
-    """
-
     # -----------------------------------------------------
     # BASIC USER INFORMATION
     # -----------------------------------------------------
-    # Primary login identifier
     email = models.EmailField(unique=True, db_index=True)
-
-    # Unique public username
     username = models.CharField(max_length=150, unique=True)
-
-    # Optional profile picture
     avatar = models.URLField(blank=True, null=True)
-    
-    # Login method (email / google)
     login_type = models.CharField(
         max_length=20,
         choices=LOGIN_TYPE_CHOICES,
@@ -60,41 +37,30 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     # -----------------------------------------------------
     # ROLE BASED ACCESS CONTROL
     # -----------------------------------------------------
-    # Determines user permission level in the system
     role = models.CharField(
         max_length=50,
         choices=ROLE_CHOICES,
         default=ROLE_USER
     )
 
-
     # -----------------------------------------------------
     # ACCOUNT STATUS FLAGS
     # -----------------------------------------------------
-    # Indicates whether email has been verified
+    is_blocked = models.BooleanField(default=False)    
+    blocked_reason = models.TextField(blank=True, null=True)
     is_verified = models.BooleanField(default=False)
-
-    # Indicates whether the account is active
     is_active = models.BooleanField(default=True)
-
-    # Allows access to Django admin panel
     is_staff = models.BooleanField(default=False)
-
 
     # -----------------------------------------------------
     # TIMESTAMP FIELDS
     # -----------------------------------------------------
-    # When the account was created
     created_at = models.DateTimeField(auto_now_add=True)
-
-    # Last time account was updated
     updated_at = models.DateTimeField(auto_now=True)
-
 
     # -----------------------------------------------------
     # TOKEN MANAGEMENT
     # -----------------------------------------------------
-    # Stored hash of refresh token for JWT authentication
     refresh_token_hash = models.CharField(
         max_length=64,
         blank=True,
@@ -215,19 +181,14 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
             raw_token.encode()
         ).hexdigest()
 
-        # Calculate token expiry time
         expiry = timezone.now() + timedelta(minutes=expiry_minutes)
 
-        # Store hashed token and expiry
         setattr(self, token_field, hashed_token)
         setattr(self, expiry_field, expiry)
 
         self.save(update_fields=[token_field, expiry_field])
 
-        # Return raw token (used in email verification or reset links)
         return raw_token
-    
-
 
 class APIKey(BaseModel):
     """API keys for accessing endpoints."""

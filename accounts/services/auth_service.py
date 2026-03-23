@@ -42,6 +42,14 @@ class AuthService:
     @staticmethod
     def _hash_token(token: str):
         return hashlib.sha256(token.encode()).hexdigest()
+    
+    @staticmethod
+    def generate_tokens(user):
+        refresh = RefreshToken.for_user(user)
+        return {
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
+        }
 
     # =====================================================
     # Register User
@@ -115,6 +123,9 @@ class AuthService:
 
         if not user:
             raise AuthenticationFailed("Invalid credentials")
+        
+        if user.is_blocked:
+            raise AuthenticationFailed("Account is blocked")
 
         if user.login_type == LOGIN_GOOGLE:
             raise AuthenticationFailed("Please login using Google")
@@ -125,12 +136,9 @@ class AuthService:
         if not user.is_active:
             raise AuthenticationFailed("Account is disabled")
 
-        refresh = RefreshToken.for_user(user)
-
         return {
             "user": user,
-            "access": str(refresh.access_token),
-            "refresh": str(refresh)
+            "requires_2fa": user.is_2fa_enabled
         }
 
     # =====================================================
