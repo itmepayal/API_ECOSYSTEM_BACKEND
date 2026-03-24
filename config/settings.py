@@ -1,8 +1,11 @@
-from pathlib import Path
-from datetime import timedelta
 import os
-from dotenv import load_dotenv
+import cloudinary
+import cloudinary.api
 import dj_database_url
+from pathlib import Path
+import cloudinary.uploader
+from datetime import timedelta
+from dotenv import load_dotenv
 
 # -------------------------------------------------
 # Base Directory
@@ -152,13 +155,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-# -------------------------------------------------
-# Static Files
-# -------------------------------------------------
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # -------------------------------------------------
 # Custom User Model
@@ -241,11 +238,11 @@ EMAIL_FROM = os.getenv(
 
 SENDGRID_PASSWORD_RESET_TEMPLATE_ID = os.getenv(
     "SENDGRID_PASSWORD_RESET_TEMPLATE_ID"
-)
+).strip()
 
 SENDGRID_EMAIL_VERIFICATION_TEMPLATE_ID = os.getenv(
     "SENDGRID_EMAIL_VERIFICATION_TEMPLATE_ID"
-)
+).strip()
 
 # -------------------------------------------------
 # Frontend URL
@@ -308,3 +305,27 @@ SPECTACULAR_SETTINGS = {
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+# -------------------------------------------------
+# CLOUDINARY 
+# -------------------------------------------------
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+cloudinary.config(
+    cloud_name = CLOUDINARY_CLOUD_NAME,
+    api_key = CLOUDINARY_API_KEY,
+    api_secret = CLOUDINARY_API_SECRET,
+    secure = True
+)
+
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+# -------------------------------------------------
+# Static Files
+# -------------------------------------------------
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

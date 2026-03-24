@@ -7,7 +7,6 @@ from core.api.base_view import BaseAPIView
 from accounts.models import APIKey
 from accounts.serializers.apikey_serializer import APIKeySerializer
 
-
 class APIKeyListCreateView(BaseAPIView, ListCreateAPIView):
     serializer_class = APIKeySerializer
     permission_classes = [IsAuthenticated]

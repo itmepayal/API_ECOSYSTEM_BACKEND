@@ -57,6 +57,9 @@ def send_email(
         return response
 
     except Exception as e:
+        print("ERROR:", str(e))
+        if hasattr(e, "body"):
+            print("BODY:", e.body)
         logger.exception("SendGrid template email error")
         raise RuntimeError("Failed to send email via SendGrid") from e
     

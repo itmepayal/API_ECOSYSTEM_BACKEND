@@ -1,10 +1,14 @@
-from rest_framework.permissions import AllowAny, IsAuthenticated
+# =========================================================
+# Rest Framework
+# =========================================================
 from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from core.api.base_view import BaseAPIView
-from core.throttles.auth_throttle import AuthThrottle
-
-from accounts.serializers.auth_serializer import (
+# =========================================================
+# Serializers
+# =========================================================
+from accounts.serializers import (
+    UserSerializer,
     RegisterSerializer,
     LoginSerializer,
     VerifyEmailSerializer,
@@ -14,36 +18,34 @@ from accounts.serializers.auth_serializer import (
     GoogleLoginSerializer
 )
 
-from accounts.serializers.user_serializer import UserSerializer
-from accounts.services.auth_service import AuthService
+# =========================================================
+# Services
+# =========================================================
+from accounts.services import AuthService
+
+# =========================================================
+# Core
+# =========================================================
+from core.api import BaseAPIView
+from core.throttles import AuthThrottle
 
 # =========================================================
 # User Registration
 # =========================================================
 class RegisterView(BaseAPIView):
-    """
-    API endpoint for user registration.
-
-    Responsibilities:
-    - Validate registration data
-    - Create new user account
-    - Send email verification token
-
-    Security:
-    - Public endpoint
-    - Rate limited
-    """
-
+    """API endpoint for user registration."""
     permission_classes = [AllowAny]
     throttle_classes = [AuthThrottle]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Create user via service layer
         user = AuthService.register_user(**serializer.validated_data)
 
+        # Step 3: Return success response
         return self.success_response(
             message="User registered successfully. Please verify your email.",
             data=UserSerializer(user).data,
@@ -55,27 +57,20 @@ class RegisterView(BaseAPIView):
 # User Login
 # =========================================================
 class LoginView(BaseAPIView):
-    """
-    API endpoint for user login.
-
-    Responsibilities:
-    - Validate login credentials
-    - Authenticate user
-    - Generate JWT access and refresh tokens
-    """
-
+    """API endpoint for user login."""
     permission_classes = [AllowAny]
     throttle_classes = [AuthThrottle]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Authenticate user via service
         result = AuthService.login_user(**serializer.validated_data)
-        
         user = result["user"]
         
+        # Step 3: Handle 2FA requirement
         if result["requires_2fa"]:
             return self.success_response(
                 message="2FA required",
@@ -84,9 +79,11 @@ class LoginView(BaseAPIView):
                     "user_id": user.id
                 }
             )
-            
+        
+        # Step 4: Generate JWT tokens
         tokens = AuthService.generate_tokens(user)
 
+        # Step 5: Return success response
         return self.success_response(
             message="Login successful",
             data={
@@ -96,25 +93,25 @@ class LoginView(BaseAPIView):
             }
         )
 
+
 # =========================================================
 # Email Verification
 # =========================================================
 class VerifyEmailView(BaseAPIView):
-    """
-    Verify user's email using verification token.
-    """
-
+    """API endpoint to verify user's email."""
     permission_classes = [AllowAny]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Verify email via service
         user = AuthService.verify_email(
             serializer.validated_data["token"]
         )
 
+        # Step 3: Return success response
         return self.success_response(
             message="Email verified successfully",
             data=UserSerializer(user).data
@@ -125,18 +122,11 @@ class VerifyEmailView(BaseAPIView):
 # Logout
 # =========================================================
 class LogoutView(BaseAPIView):
-    """
-    Logout the authenticated user.
-
-    Note:
-    JWT is stateless, so logout usually requires
-    refresh token blacklisting.
-    """
-
+    """API endpoint for user logout."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-
+        # Step 1: Return success response
         return self.success_response(
             message="Logged out successfully"
         )
@@ -146,22 +136,21 @@ class LogoutView(BaseAPIView):
 # Forgot Password
 # =========================================================
 class ForgotPasswordView(BaseAPIView):
-    """
-    Initiate password reset process.
-    """
-
+    """API endpoint to initiate password reset."""
     permission_classes = [AllowAny]
     throttle_classes = [AuthThrottle]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = ForgotPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Trigger reset email
         AuthService.forgot_password(
             serializer.validated_data["email"]
         )
 
+        # Step 3: Return success response
         return self.success_response(
             message="Password reset email sent"
         )
@@ -171,19 +160,18 @@ class ForgotPasswordView(BaseAPIView):
 # Reset Password
 # =========================================================
 class ResetPasswordView(BaseAPIView):
-    """
-    Reset password using reset token.
-    """
-
+    """API endpoint to reset password."""
     permission_classes = [AllowAny]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = ResetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Reset password via service
         AuthService.reset_password(**serializer.validated_data)
-
+        
+        # Step 3: Return success response
         return self.success_response(
             message="Password reset successful"
         )
@@ -193,47 +181,46 @@ class ResetPasswordView(BaseAPIView):
 # Change Password
 # =========================================================
 class ChangePasswordView(BaseAPIView):
-    """
-    Change password for authenticated user.
-    """
+    """API endpoint to change password."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Change password via service
         AuthService.change_password(
             request.user,
             **serializer.validated_data
         )
 
+        # Step 3: Return success response
         return self.success_response(
             message="Password changed successfully"
         )
 
 
 # =========================================================
-# Goggle Login
+# Google Login
 # =========================================================
 class GoogleLoginView(BaseAPIView):
-    """
-    Authenticate user via Google OAuth
-    """
-
+    """API endpoint for Google OAuth login."""
     permission_classes = [AllowAny]
     throttle_classes = [AuthThrottle]
 
     def post(self, request):
-
+        # Step 1: Validate input data
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Step 2: Authenticate via Google service
         result = AuthService.google_login(
             serializer.validated_data["token"]
         )
 
+        # Step 3: Return success response
         return self.success_response(
             message="Google login successful",
             data={
@@ -242,4 +229,3 @@ class GoogleLoginView(BaseAPIView):
                 "refresh_token": result["refresh"]
             }
         )
-        

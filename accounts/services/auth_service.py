@@ -1,23 +1,43 @@
+# =========================================================
+# Python Packages
+# =========================================================
 import hashlib
 import uuid
 
+# =========================================================
+# Google
+# =========================================================
 from google.oauth2 import id_token
 from google.auth.transport import requests
 
+# =========================================================
+# Django
+# =========================================================
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth import authenticate
 
+# =========================================================
+# Rest Framework
+# =========================================================
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 
+# =========================================================
+# Accounts
+# =========================================================
 from accounts.models import User
-from accounts.selectors.user_selector import get_user_by_email
+from accounts.selectors import get_user_by_email
 
+# =========================================================
+# Core
+# =========================================================
 from core.constants import LOGIN_EMAIL, LOGIN_GOOGLE
 from core.email.send_email import send_email
 
-
+# =========================================================
+# AUTH SERVICES
+# =========================================================
 class AuthService:
 
     # =====================================================
@@ -78,7 +98,6 @@ class AuthService:
             template_id=settings.SENDGRID_EMAIL_VERIFICATION_TEMPLATE_ID,
             dynamic_data={
                 "username": user.username,
-                "verification_code": raw_token,
                 "verify_link": verify_link
             }
         )
@@ -269,3 +288,4 @@ class AuthService:
             "access": str(refresh.access_token),
             "refresh": str(refresh)
         }
+        

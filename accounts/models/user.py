@@ -8,178 +8,115 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 
 from accounts.managers.user_manager import UserManager
-
 from core.models.base import BaseModel
 from core.constants import (
-    ROLE_CHOICES, 
-    ROLE_USER, 
-    LOGIN_EMAIL, 
-    LOGIN_GOOGLE, 
+    ROLE_CHOICES,
+    ROLE_USER,
+    LOGIN_EMAIL,
     LOGIN_TYPE_CHOICES
 )
 
 # =========================================================
-# User Model
+# USER MODEL
 # =========================================================
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
-    # -----------------------------------------------------
-    # BASIC USER INFORMATION
-    # -----------------------------------------------------
+
+    # -------------------------
+    # BASIC INFO
+    # -------------------------
     email = models.EmailField(unique=True, db_index=True)
     username = models.CharField(max_length=150, unique=True)
     avatar = models.URLField(blank=True, null=True)
+
     login_type = models.CharField(
         max_length=20,
         choices=LOGIN_TYPE_CHOICES,
         default=LOGIN_EMAIL
     )
 
-    # -----------------------------------------------------
-    # ROLE BASED ACCESS CONTROL
-    # -----------------------------------------------------
+    # -------------------------
+    # ROLE & STATUS
+    # -------------------------
     role = models.CharField(
         max_length=50,
         choices=ROLE_CHOICES,
         default=ROLE_USER
     )
 
-    # -----------------------------------------------------
-    # ACCOUNT STATUS FLAGS
-    # -----------------------------------------------------
-    is_blocked = models.BooleanField(default=False)    
+    is_blocked = models.BooleanField(default=False)
     blocked_reason = models.TextField(blank=True, null=True)
+
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
-    # -----------------------------------------------------
-    # TIMESTAMP FIELDS
-    # -----------------------------------------------------
+    # -------------------------
+    # LOGIN TRACKING
+    # -------------------------
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_login_user_agent = models.CharField(max_length=512, null=True, blank=True)
+
+    # -------------------------
+    # TIMESTAMPS
+    # -------------------------
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # -----------------------------------------------------
+    # -------------------------
     # TOKEN MANAGEMENT
-    # -----------------------------------------------------
-    refresh_token_hash = models.CharField(
-        max_length=64,
-        blank=True,
-        null=True
-    )
+    # -------------------------
+    refresh_token_hash = models.CharField(max_length=64, blank=True, null=True)
+    refresh_token_expiry = models.DateTimeField(blank=True, null=True)
 
-    # Expiration time of refresh token
-    refresh_token_expiry = models.DateTimeField(
-        blank=True,
-        null=True
-    )
+    forgot_password_token = models.CharField(max_length=64, blank=True, null=True)
+    forgot_password_expiry = models.DateTimeField(blank=True, null=True)
 
-    # Token used for password reset functionality
-    forgot_password_token = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
+    email_verification_token = models.CharField(max_length=64, blank=True, null=True)
+    email_verification_expiry = models.DateTimeField(blank=True, null=True)
 
-    # Expiry time for password reset token
-    forgot_password_expiry = models.DateTimeField(
-        blank=True,
-        null=True
-    )
-
-    # Token used for email verification
-    email_verification_token = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
-
-    # Expiry time for email verification token
-    email_verification_expiry = models.DateTimeField(
-        blank=True,
-        null=True
-    )
-
-
-    # -----------------------------------------------------
-    # TWO FACTOR AUTHENTICATION (2FA)
-    # -----------------------------------------------------
-    # Indicates if 2FA is enabled for the user
+    # -------------------------
+    # 2FA
+    # -------------------------
     is_2fa_enabled = models.BooleanField(default=False)
+    totp_secret = models.CharField(max_length=32, blank=True, null=True)
 
-    # Secret key used for generating TOTP codes
-    totp_secret = models.CharField(
-        max_length=32,
-        blank=True,
-        null=True
-    )
-
-
-    # -----------------------------------------------------
-    # DJANGO AUTHENTICATION CONFIGURATION
-    # -----------------------------------------------------
-    # Email is used as the unique identifier for login
+    # -------------------------
+    # DJANGO CONFIG
+    # -------------------------
     USERNAME_FIELD = "email"
-
-    # Required fields when creating a user via createsuperuser
     REQUIRED_FIELDS = ["username"]
 
-    # Custom user manager
     objects = UserManager()
 
-    # -----------------------------------------------------
-    # DATABASE INDEX CONFIGURATION
-    # -----------------------------------------------------
     class Meta:
-        """
-        Adds database indexes to improve query performance.
-        """
         indexes = [
             models.Index(fields=["email"]),
             models.Index(fields=["username"]),
         ]
 
-
-    # -----------------------------------------------------
-    # STRING REPRESENTATION
-    # -----------------------------------------------------
     def __str__(self):
-        """
-        Return the string representation of the user.
-        """
         return self.email
 
+    # -------------------------
+    # AVATAR
+    # -------------------------
+    @property
+    def avatar_url(self):
+        if self.avatar and self.avatar.startswith("http"):
+            return self.avatar
+        return f"https://api.dicebear.com/7.x/adventurer/svg?seed={self.username}"
 
-    # -----------------------------------------------------
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.avatar:
+            self.avatar = self.avatar_url
+        super().save(*args, **kwargs)
+
+    # -------------------------
     # TOKEN GENERATOR
-    # -----------------------------------------------------
+    # -------------------------
     def generate_token(self, token_field, expiry_field, expiry_minutes=10):
-        """
-        Generate a secure token and store its hashed version.
-
-        Parameters
-        ----------
-        token_field : str
-            Model field where hashed token will be stored.
-
-        expiry_field : str
-            Model field where token expiry time will be stored.
-
-        expiry_minutes : int
-            Number of minutes before the token expires.
-
-        Returns
-        -------
-        str
-            Raw token that can be sent to the user (via email).
-        """
-
-        # Generate a secure random token
         raw_token = secrets.token_hex(20)
-
-        # Hash the token before storing it in the database
-        hashed_token = hashlib.sha256(
-            raw_token.encode()
-        ).hexdigest()
+        hashed_token = hashlib.sha256(raw_token.encode()).hexdigest()
 
         expiry = timezone.now() + timedelta(minutes=expiry_minutes)
 
@@ -190,12 +127,28 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
 
         return raw_token
 
+
+# =========================================================
+# API KEY MODEL
+# =========================================================
 class APIKey(BaseModel):
-    """API keys for accessing endpoints."""
     key = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_keys")
-    usage_limit = models.IntegerField(default=1000)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="api_keys"
+    )
+    name = models.CharField(max_length=255, null=True, blank=True)
+    usage_limit = models.PositiveIntegerField(default=1000)
+    usage_count = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["key"]),
+        ]
 
     def __str__(self):
-        return f"{self.user.username} - {self.key}"
+        return f"{self.user.username} - {self.name}"
     
