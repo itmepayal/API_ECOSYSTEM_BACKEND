@@ -8,14 +8,17 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models import User
 
-
 class TwoFactorService:
-
     # =====================================================
     # GENERATE 2FA SETUP
     # =====================================================
     @staticmethod
     def setup_2fa(user):
+        if user.is_blocked:
+            raise ValidationError("User is blocked")
+        
+        if user.is_2fa_enabled:
+            raise ValidationError("2FA already enabled")
 
         secret = pyotp.random_base32()
 
@@ -44,6 +47,8 @@ class TwoFactorService:
     # =====================================================
     @staticmethod
     def verify_setup(user, code):
+        if user.is_blocked:
+            raise ValidationError("User is blocked")
 
         if not user.totp_secret:
             raise ValidationError("2FA not initialized")
@@ -63,11 +68,21 @@ class TwoFactorService:
     # =====================================================
     @staticmethod
     def verify_login_2fa(user_id, code):
+        
 
         user = get_object_or_404(User, id=user_id)
+        
+        if user.is_blocked:
+            raise ValidationError("User is blocked")
 
         if not user.is_2fa_enabled:
             raise ValidationError("2FA is not enabled")
+        
+        if user.is_blocked:
+            raise ValidationError("User blocked")
+
+        if not user.totp_secret:
+            raise ValidationError("2FA not configured properly")
 
         totp = pyotp.TOTP(user.totp_secret)
 
@@ -81,6 +96,11 @@ class TwoFactorService:
     # =====================================================
     @staticmethod
     def disable_2fa(user, code):
+        if user.is_blocked:
+            raise ValidationError("User is blocked")
+        
+        if not user.is_2fa_enabled:
+            raise ValidationError("2FA already disabled")
 
         if not user.totp_secret:
             raise ValidationError("2FA not enabled")

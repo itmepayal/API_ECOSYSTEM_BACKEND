@@ -5,7 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from core.api.base_view import BaseAPIView
 from accounts.models import APIKey
-from accounts.serializers import APIKeySerializer
+from accounts.serializers.apikey_serializer import APIKeySerializer
 
 
 class APIKeyListCreateView(BaseAPIView, ListCreateAPIView):
