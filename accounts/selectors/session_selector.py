@@ -1,10 +1,26 @@
-from accounts.models.session import UserSession
+# =========================================================
+# Django
+# =========================================================
+from django.utils import timezone
 
-def get_active_sessions():
-    return UserSession.objects.filter(is_active=True)
+# =========================================================
+# Accounts Models
+# =========================================================
+from accounts.models import UserSession
 
-def get_active_session_by_id(session_id):
-    try:
-        return UserSession.objects.get(id=session_id, is_active=True)
-    except UserSession.DoesNotExist:
-        return None
+# =========================================================
+# GET ACTIVE SESSIONS
+# =========================================================
+def get_active_sessions(user=None):
+    qs = UserSession.objects.filter(expires_at__gt=timezone.now())
+    return qs.filter(user=user) if user else qs
+
+# =========================================================
+# GET ACTIVE SESSION BY ID
+# =========================================================
+def get_active_session_by_id(session_id, user=None):
+    qs = UserSession.objects.filter(
+        id=session_id,
+        expires_at__gt=timezone.now()
+    )
+    return qs.filter(user=user).first() if user else qs.first()

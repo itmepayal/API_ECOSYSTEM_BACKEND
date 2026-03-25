@@ -1,14 +1,38 @@
-from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.throttling import ScopedRateThrottle
 
-class AuthThrottle(SimpleRateThrottle):
-
+# =========================================================
+# BASE AUTH THROTTLE
+# =========================================================
+class AuthThrottle(ScopedRateThrottle):
     scope = "auth"
 
-    def get_cache_key(self, request, view):
+# =========================================================
+# LOGIN THROTTLE (STRICT)
+# =========================================================
+class LoginThrottle(ScopedRateThrottle):
+    scope = "login"
 
-        if request.user.is_authenticated:
-            ident = request.user.pk
-        else:
-            ident = self.get_ident(request)
+# =========================================================
+# REGISTER THROTTLE
+# =========================================================
+class RegisterThrottle(ScopedRateThrottle):
+    scope = "register"
 
-        return f"throttle_auth_{ident}"
+# =========================================================
+# RESEND VERIFICATION (ANTI-SPAM)
+# =========================================================
+class ResendVerificationThrottle(ScopedRateThrottle):
+    scope = "resend"
+
+# =========================================================
+# FORGOT PASSWORD (ANTI-ABUSE)
+# =========================================================
+class ForgotPasswordThrottle(ScopedRateThrottle):
+    scope = "forgot_password"
+
+# =========================================================
+# TWO FACTOR AUTH (CRITICAL SECURITY)
+# =========================================================
+class TwoFactorThrottle(ScopedRateThrottle):
+    scope = "two_factor"
+    

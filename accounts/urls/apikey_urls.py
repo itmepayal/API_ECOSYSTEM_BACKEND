@@ -1,11 +1,19 @@
 from django.urls import path
-
-from accounts.views.apikey_views import (
+from accounts.views import (
     APIKeyListCreateView,
-    APIKeyDetailView
+    APIKeyDetailView,
+    AdminAPIKeyListView,
+    AdminAPIKeyUpdateView,
+    AdminAPIKeyDeleteView,
 )
 
 urlpatterns = [
-    path("", APIKeyListCreateView.as_view()),            
-    path("<uuid:pk>/", APIKeyDetailView.as_view()),      
+    # USER
+    path("", APIKeyListCreateView.as_view()),
+    path("<uuid:id>/", APIKeyDetailView.as_view()),
+
+    # ADMIN
+    path("admin/", AdminAPIKeyListView.as_view()),
+    path("admin/<uuid:id>/", AdminAPIKeyUpdateView.as_view()),
+    path("admin/<uuid:id>/delete/", AdminAPIKeyDeleteView.as_view()),
 ]

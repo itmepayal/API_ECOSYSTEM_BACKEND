@@ -1,8 +1,15 @@
+# =========================================================
+# Django Rest Framework
+# =========================================================
 from rest_framework import serializers
+
+# =========================================================
+# Accounts Models
+# =========================================================
 from accounts.models import APIKey
 
 # =========================================================
-# API Key Serializer
+# Serializer
 # =========================================================
 class APIKeySerializer(serializers.ModelSerializer):
     class Meta:

@@ -47,10 +47,6 @@ urlpatterns = [
     # =============================
     # ADMIN APIs
     # =============================
-    path(
-        "api/v1/admin/",
-        include(("accounts.urls.admin_urls", "admin_api"), namespace="admin_api")
-    ),
 
     # =============================
     # OTHER MODULES

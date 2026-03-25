@@ -1,6 +1,6 @@
 from django.urls import path
 
-from accounts.views.me_view import (
+from accounts.views import (
     MeView,
     UpdateAvatarView
 )

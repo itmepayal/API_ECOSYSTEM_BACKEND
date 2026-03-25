@@ -1,7 +1,6 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
-from accounts.views.auth_views import (
+from accounts.views import (
     RegisterView,
     LoginView,
     VerifyEmailView,
@@ -9,10 +8,11 @@ from accounts.views.auth_views import (
     ResetPasswordView,
     ChangePasswordView,
     LogoutView,
+    RefreshTokenView,
     GoogleLoginView
 )
 
-from accounts.views.two_factor_view import (
+from accounts.views import (
     TwoFactorSetupView,
     TwoFactorVerifySetupView,
     TwoFactorLoginVerifyView,
@@ -28,7 +28,7 @@ urlpatterns = [
     path("forgot-password/", ForgotPasswordView.as_view()),
     path("reset-password/", ResetPasswordView.as_view()),
     path("change-password/", ChangePasswordView.as_view()),
-    path("refresh-token/", TokenRefreshView.as_view()),
+    path("refresh-token/", RefreshTokenView.as_view()),
     path("google/", GoogleLoginView.as_view()),
 
     # 2FA

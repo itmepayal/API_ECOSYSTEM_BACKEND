@@ -11,11 +11,14 @@ from accounts.serializers import (
     UserSerializer,
     RegisterSerializer,
     LoginSerializer,
+    LogoutSerializer,
+    RefreshTokenSerializer,
     VerifyEmailSerializer,
     ChangePasswordSerializer,
     ResetPasswordSerializer,
     ForgotPasswordSerializer,
-    GoogleLoginSerializer
+    GoogleLoginSerializer,
+    ResendVerificationSerializer,
 )
 
 # =========================================================
@@ -24,28 +27,43 @@ from accounts.serializers import (
 from accounts.services import AuthService
 
 # =========================================================
+# Utils
+# =========================================================
+from accounts.utils import logout_user_session, create_user_session
+
+# =========================================================
 # Core
 # =========================================================
 from core.api import BaseAPIView
-from core.throttles import AuthThrottle
+from core.throttles import (
+    AuthThrottle,
+    LoginThrottle,
+    RegisterThrottle,
+    ResendVerificationThrottle,
+    ForgotPasswordThrottle,
+    TwoFactorThrottle,
+)
 
 # =========================================================
-# User Registration
+# USER REGISTRATION
 # =========================================================
 class RegisterView(BaseAPIView):
-    """API endpoint for user registration."""
     permission_classes = [AllowAny]
-    throttle_classes = [AuthThrottle]
+    throttle_classes = [RegisterThrottle]
+    serializer_class = RegisterSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Create user via service layer
-        user = AuthService.register_user(**serializer.validated_data)
+        try:
+            user = AuthService.register_user(**serializer.validated_data)
+        except Exception as e:
+            return self.error_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Step 3: Return success response
         return self.success_response(
             message="User registered successfully. Please verify your email.",
             data=UserSerializer(user).data,
@@ -54,178 +72,226 @@ class RegisterView(BaseAPIView):
 
 
 # =========================================================
-# User Login
+# USER LOGIN
 # =========================================================
 class LoginView(BaseAPIView):
-    """API endpoint for user login."""
     permission_classes = [AllowAny]
-    throttle_classes = [AuthThrottle]
+    throttle_classes = [LoginThrottle]
+    serializer_class = LoginSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Authenticate user via service
-        result = AuthService.login_user(**serializer.validated_data)
-        user = result["user"]
-        
-        # Step 3: Handle 2FA requirement
+        try:
+            result = AuthService.login_user(request, **serializer.validated_data)
+            user = result["user"]
+        except Exception as e:
+            return self.error_response(message=str(e))
+
         if result["requires_2fa"]:
             return self.success_response(
                 message="2FA required",
-                data={
-                    "requires_2fa": True,
-                    "user_id": user.id
-                }
+                data={"requires_2fa": True, "user_id": user.id},
+                status_code=status.HTTP_200_OK
             )
-        
-        # Step 4: Generate JWT tokens
+
         tokens = AuthService.generate_tokens(user)
 
-        # Step 5: Return success response
         return self.success_response(
             message="Login successful",
             data={
                 "user": UserSerializer(user).data,
                 "access_token": tokens["access"],
                 "refresh_token": tokens["refresh"]
-            }
+            },
+            status_code=status.HTTP_200_OK
         )
 
 
 # =========================================================
-# Email Verification
+# VERIFY EMAIL
 # =========================================================
 class VerifyEmailView(BaseAPIView):
-    """API endpoint to verify user's email."""
     permission_classes = [AllowAny]
+    throttle_classes = [AuthThrottle]
+    serializer_class = VerifyEmailSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Verify email via service
-        user = AuthService.verify_email(
-            serializer.validated_data["token"]
-        )
+        try:
+            user = AuthService.verify_email(serializer.validated_data["token"])
+        except Exception as e:
+            return self.error_response(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
 
-        # Step 3: Return success response
         return self.success_response(
             message="Email verified successfully",
             data=UserSerializer(user).data
         )
 
+# =========================================================
+# RESEND EMAIL VERIFICATION
+# =========================================================
+class ResendVerificationView(BaseAPIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ResendVerificationThrottle]
+    serializer_class = ResendVerificationSerializer
+
+    def post(self, request):
+        serializer = ResendVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        try:
+            AuthService.resend_verification(email)
+        except Exception as e:
+            return self.error_response(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
+
+        return self.success_response(
+            message="If your email exists, a verification link has been sent",
+            data={"email": email}
+        )
 
 # =========================================================
-# Logout
+# LOGOUT
 # =========================================================
 class LogoutView(BaseAPIView):
-    """API endpoint for user logout."""
     permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        # Step 1: Return success response
-        return self.success_response(
-            message="Logged out successfully"
-        )
-
-
-# =========================================================
-# Forgot Password
-# =========================================================
-class ForgotPasswordView(BaseAPIView):
-    """API endpoint to initiate password reset."""
-    permission_classes = [AllowAny]
     throttle_classes = [AuthThrottle]
+    serializer_class = LogoutSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
-        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer = LogoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Trigger reset email
-        AuthService.forgot_password(
-            serializer.validated_data["email"]
-        )
+        try:
+            serializer.validated_data["token"].blacklist()
+            logout_user_session(request)
 
-        # Step 3: Return success response
-        return self.success_response(
-            message="Password reset email sent"
-        )
+        except Exception as e:
+            return self.error_response(message=str(e))
 
-
+        return self.success_response(message="Logged out successfully")
+    
 # =========================================================
-# Reset Password
+# FORGOT PASSWORD
 # =========================================================
-class ResetPasswordView(BaseAPIView):
-    """API endpoint to reset password."""
+class ForgotPasswordView(BaseAPIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ForgotPasswordThrottle]
+    serializer_class = ForgotPasswordSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        try:
+            AuthService.forgot_password(email)
+        except Exception as e:
+            return self.error_response(message=str(e))
+
+        return self.success_response(
+            message="Password reset email sent",
+            data={"email": email}
+        )
+
+
+# =========================================================
+# RESET PASSWORD
+# =========================================================
+class ResetPasswordView(BaseAPIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthThrottle]
+    serializer_class = ResetPasswordSerializer
+
+    def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Reset password via service
-        AuthService.reset_password(**serializer.validated_data)
-        
-        # Step 3: Return success response
-        return self.success_response(
-            message="Password reset successful"
-        )
+        try:
+            AuthService.reset_password(**serializer.validated_data)
+        except Exception as e:
+            return self.error_response(message=str(e))
+
+        return self.success_response(message="Password reset successful")
 
 
 # =========================================================
-# Change Password
+# CHANGE PASSWORD
 # =========================================================
 class ChangePasswordView(BaseAPIView):
-    """API endpoint to change password."""
-
     permission_classes = [IsAuthenticated]
+    throttle_classes = [AuthThrottle]
+    serializer_class = ChangePasswordSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Change password via service
-        AuthService.change_password(
-            request.user,
-            **serializer.validated_data
-        )
+        try:
+            AuthService.change_password(request.user, **serializer.validated_data)
+        except Exception as e:
+            return self.error_response(message=str(e))
 
-        # Step 3: Return success response
-        return self.success_response(
-            message="Password changed successfully"
-        )
+        return self.success_response(message="Password changed successfully")
 
 
 # =========================================================
-# Google Login
+# GOOGLE LOGIN
 # =========================================================
 class GoogleLoginView(BaseAPIView):
-    """API endpoint for Google OAuth login."""
     permission_classes = [AllowAny]
     throttle_classes = [AuthThrottle]
+    serializer_class = GoogleLoginSerializer
 
     def post(self, request):
-        # Step 1: Validate input data
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Step 2: Authenticate via Google service
-        result = AuthService.google_login(
-            serializer.validated_data["token"]
-        )
+        try:
+            result = AuthService.google_login(serializer.validated_data["token"])
+            user = result["user"]
+            session_token, session = create_user_session(request, user)
+            
+        except Exception as e:
+            return self.error_response(message=str(e))
 
-        # Step 3: Return success response
         return self.success_response(
             message="Google login successful",
             data={
-                "user": UserSerializer(result["user"]).data,
+                "user": UserSerializer(user).data,
                 "access_token": result["access"],
-                "refresh_token": result["refresh"]
+                "refresh_token": result["refresh"],
+                "session_token": session_token
+            }
+        )
+        
+# =========================================================
+# REFRESH TOKEN
+# =========================================================
+class RefreshTokenView(BaseAPIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthThrottle]
+    serializer_class = RefreshTokenSerializer
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            tokens = AuthService.refresh_tokens(
+                serializer.validated_data["token"]
+            )
+        except Exception as e:
+            return self.error_response(message=str(e))
+
+        return self.success_response(
+            message="Token refreshed successfully",
+            data={
+                "access_token": tokens["access"],
+                "refresh_token": tokens["refresh"]
             }
         )

@@ -1,12 +1,12 @@
 # =========================================================
-# Accounts Models
+# Cloudinary Service
 # =========================================================
-from accounts.models import User
+from .cloudinary_service import CloudinaryService
 
 # =========================================================
-# GET USER BY EMAIL
+# Exports
 # =========================================================
-def get_user_by_email(email: str):
-    if not email:
-        return None
-    return User.objects.filter(email__iexact=email).first()
+__all__ = [
+    "CloudinaryService",
+]
+

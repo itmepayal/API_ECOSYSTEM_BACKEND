@@ -196,9 +196,21 @@ REST_FRAMEWORK = {
     ],
 
     "DEFAULT_THROTTLE_RATES": {
+        # Global
         "anon": "20/min",
         "user": "100/min",
-        "auth": "10/min"
+
+        # Auth APIs
+        "auth": "10/min",
+        "login": "5/min",
+        "register": "5/min",
+
+        # Sensitive
+        "resend": "3/min",
+        "forgot_password": "3/min",
+
+        # 2FA
+        "two_factor": "5/min",
     },
 }
 

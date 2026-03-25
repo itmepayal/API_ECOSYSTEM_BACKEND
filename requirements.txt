@@ -47,3 +47,4 @@ Werkzeug==3.1.6
 whitenoise==6.7.0
 daphne
 decouple
+pillow==10.4.0
