@@ -1,7 +1,12 @@
+# =========================================================
+# Accounts Models
+# =========================================================
 from accounts.models import User
 
-# ---------------------------------
-# SELECTOR: GET USER BY EMAIL
-# ---------------------------------
+# =========================================================
+# GET USER BY EMAIL
+# =========================================================
 def get_user_by_email(email: str):
-    return User.objects.filter(email=email).first()
+    if not email:
+        return None
+    return User.objects.filter(email__iexact=email).first()
