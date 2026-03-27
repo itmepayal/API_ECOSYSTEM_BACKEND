@@ -1,225 +1,139 @@
-# =========================================================
-# Rest Framework
-# =========================================================
-from rest_framework import filters
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveUpdateDestroyAPIView,
-    ListAPIView,
-    RetrieveUpdateAPIView,
-    DestroyAPIView,
 )
-
-# =========================================================
-# Third Party
-# =========================================================
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status
+from rest_framework.exceptions import ValidationError
+from rest_framework.views import APIView
 
-# =========================================================
-# Models
-# =========================================================
-from accounts.models import APIKey
-
-# =========================================================
-# Serializers
-# =========================================================
 from accounts.serializers import APIKeySerializer
-
-# =========================================================
-# Core
-# =========================================================
+from accounts.services.api_key_service import APIKeyService
+from accounts.selectors.api_key_selector import APIKeySelector
 from core.api import BaseAPIView
-from core.permissions import IsAdminUserCustom
+
 
 # =========================================================
-# USER: LIST & CREATE
+# LIST + CREATE
 # =========================================================
-class APIKeyListCreateView(ListCreateAPIView, BaseAPIView):
-    """
-    USER:
-    - List own API keys
-    - Create API key
-    """
-
+class APIKeyListCreateView(BaseAPIView, ListCreateAPIView):
     serializer_class = APIKeySerializer
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-
-    filterset_fields = ["usage_limit"]
+    filterset_fields = ["usage_limit", "is_active"]
     ordering_fields = ["created_at", "usage_limit"]
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        return APIKey.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-    def list(self, request, *args, **kwargs):
-        res = super().list(request, *args, **kwargs)
-        data, meta = self._format_response(res)
-
-        return self.success_response(
-            message="Your API Keys fetched successfully",
-            data=data,
-            meta=meta,
-        )
+        return APIKeySelector.get_api_keys(self.request.user)
 
     def create(self, request, *args, **kwargs):
-        res = super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        instance, raw_key = APIKeyService.create_api_key(
+            user=request.user,
+            validated_data=serializer.validated_data
+        )
 
         return self.success_response(
             message="API Key created successfully",
-            data=res.data,
-            status_code=res.status_code,
+            data={
+                **self.get_serializer(instance).data,
+                "api_key": raw_key,  # only shown once
+            }
         )
 
-    def _format_response(self, res):
-        if isinstance(res.data, dict):
-            return (
-                res.data.get("results", []),
-                {
-                    "count": res.data.get("count"),
-                    "next": res.data.get("next"),
-                    "previous": res.data.get("previous"),
-                },
-            )
-        return res.data, None
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        return self.success_response(
+            message="API Keys fetched successfully",
+            data=serializer.data,
+            meta={"count": queryset.count()},
+        )
 
 
 # =========================================================
-# USER: RETRIEVE / UPDATE / DELETE
+# DETAIL / UPDATE / DELETE
 # =========================================================
-class APIKeyDetailView(RetrieveUpdateDestroyAPIView, BaseAPIView):
-    """
-    USER:
-    - Retrieve own API key
-    - Update
-    - Delete
-    """
-
+class APIKeyDetailView(BaseAPIView, RetrieveUpdateDestroyAPIView):
     serializer_class = APIKeySerializer
     permission_classes = [IsAuthenticated]
     lookup_field = "id"
 
     def get_queryset(self):
-        return APIKey.objects.filter(user=self.request.user)
+        return APIKeySelector.get_api_keys(self.request.user)
 
-    def retrieve(self, request, *args, **kwargs):
-        res = super().retrieve(request, *args, **kwargs)
+    # ✅ CLEAN UPDATE FLOW
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", True)
+        instance = self.get_object()
 
-        return self.success_response(
-            message="API Key fetched successfully",
-            data=res.data,
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
+
+        # Use service layer
+        APIKeyService.update_api_key(
+            instance=instance,
+            validated_data=serializer.validated_data
         )
 
-    def update(self, request, *args, **kwargs):
-        res = super().update(request, *args, **kwargs)
+        # Ensure fresh data
+        instance.refresh_from_db()
 
         return self.success_response(
             message="API Key updated successfully",
-            data=res.data,
+            data=self.get_serializer(instance).data,
         )
 
     def destroy(self, request, *args, **kwargs):
-        super().destroy(request, *args, **kwargs)
+        instance = self.get_object()
+
+        APIKeyService.delete_api_key(instance)
 
         return self.success_response(
             message="API Key deleted successfully"
         )
 
-
 # =========================================================
-# ADMIN: LIST ALL KEYS
+# VERIFY API KEY
 # =========================================================
-class AdminAPIKeyListView(ListAPIView, BaseAPIView):
-    """
-    ADMIN:
-    - View all API keys
-    """
+class VerifyAPIKeyView(BaseAPIView, APIView):
+    permission_classes = [AllowAny]
 
-    serializer_class = APIKeySerializer
-    permission_classes = [IsAuthenticated, IsAdminUserCustom]
+    def post(self, request):
+        raw_key = request.data.get("api_key")
 
-    filter_backends = [
-        DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-
-    filterset_fields = ["usage_limit", "user"]
-    search_fields = ["user__email"]  # ❗ secure
-    ordering_fields = ["created_at", "usage_limit"]
-    ordering = ["-created_at"]
-
-    def get_queryset(self):
-        return APIKey.objects.select_related("user").all()
-
-    def list(self, request, *args, **kwargs):
-        res = super().list(request, *args, **kwargs)
-        data, meta = self._format_response(res)
-
-        return self.success_response(
-            message="All API Keys fetched (Admin)",
-            data=data,
-            meta=meta,
-        )
-
-    def _format_response(self, res):
-        if isinstance(res.data, dict):
-            return (
-                res.data.get("results", []),
-                {
-                    "count": res.data.get("count"),
-                    "next": res.data.get("next"),
-                    "previous": res.data.get("previous"),
-                },
+        if not raw_key:
+            return self.error_response(
+                message="API key is required",
+                status_code=status.HTTP_400_BAD_REQUEST
             )
-        return res.data, None
 
-
-# =========================================================
-# ADMIN: UPDATE KEY
-# =========================================================
-class AdminAPIKeyUpdateView(RetrieveUpdateAPIView, BaseAPIView):
-    """
-    ADMIN:
-    - Update API key
-    - Revoke key
-    """
-
-    serializer_class = APIKeySerializer
-    permission_classes = [IsAuthenticated, IsAdminUserCustom]
-    queryset = APIKey.objects.all()
-    lookup_field = "id"
-
-    def update(self, request, *args, **kwargs):
-        res = super().update(request, *args, **kwargs)
+        try:
+            api_key = APIKeyService.verify_and_use_key(raw_key)
+        except ValidationError as e:
+            return self.error_response(
+                message="Invalid API key",
+                errors=e.detail,
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
 
         return self.success_response(
-            message="API Key updated successfully",
-            data=res.data,
+            message="API key is valid",
+            data={
+                "user_id": api_key.user.id,
+                "email": api_key.user.email,
+                "prefix": api_key.prefix,
+                "usage_count": api_key.usage_count,
+            }
         )
-
-
-# =========================================================
-# ADMIN: DELETE KEY
-# =========================================================
-class AdminAPIKeyDeleteView(DestroyAPIView, BaseAPIView):
-    """
-    ADMIN:
-    - Delete any API key
-    """
-
-    permission_classes = [IsAuthenticated, IsAdminUserCustom]
-    queryset = APIKey.objects.all()
-    lookup_field = "id"
-
-    def destroy(self, request, *args, **kwargs):
-        super().destroy(request, *args, **kwargs)
-
-        return self.success_response(
-            message="API Key deleted successfully"
-        )
+        

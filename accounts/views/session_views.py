@@ -37,7 +37,6 @@ class UserSessionListView(generics.ListAPIView):
     def get_serializer_context(self):
         return {"request": self.request}
 
-
 # =========================================================
 # DELETE SINGLE SESSION
 # =========================================================

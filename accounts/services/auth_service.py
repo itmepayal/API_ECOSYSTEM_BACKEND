@@ -27,7 +27,6 @@ from rest_framework.exceptions import AuthenticationFailed, ValidationError
 # Accounts
 # =========================================================
 from accounts.models import User
-from accounts.utils import create_user_session
 from accounts.selectors import get_user_by_email
 
 # =========================================================
@@ -146,8 +145,9 @@ class AuthService:
     # LOGIN USER
     # =====================================================
     @staticmethod
-    def login_user(request, email, password):
+    def login_user(email, password):
         user = authenticate(email=email, password=password)
+
         if not user:
             raise AuthenticationFailed("Invalid credentials")
         if user.is_blocked:
@@ -159,14 +159,11 @@ class AuthService:
         if not user.is_active:
             raise AuthenticationFailed("Account is disabled")
 
-        session_token, session = create_user_session(request, user)
-
         return {
             "user": user,
-            "requires_2fa": user.is_2fa_enabled,
-            "session_token": session_token
+            "requires_2fa": user.is_2fa_enabled
         }
-
+    
     # =====================================================
     # FORGOT PASSWORD
     # =====================================================
@@ -230,57 +227,89 @@ class AuthService:
     @staticmethod
     def google_login(token):
         token = AuthService._validate_token(token)
+
         try:
-            idinfo = id_token.verify_oauth2_token(token, requests.Request(), settings.GOOGLE_CLIENT_ID)
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID
+            )
+
             if idinfo["aud"] != settings.GOOGLE_CLIENT_ID:
                 raise ValidationError("Invalid audience")
+
         except ValueError:
             raise ValidationError("Invalid Google token")
 
         email = idinfo.get("email")
         name = idinfo.get("name") or "user"
         avatar = idinfo.get("picture")
+
         if not email:
             raise ValidationError("Google account has no email")
 
         username = f"{name.replace(' ', '').lower()}_{uuid.uuid4().hex[:6]}"
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "username": username,
-                "avatar": avatar,
-                "is_verified": True,
-                "login_type": LOGIN_GOOGLE
-            }
-        )
-        if not created:
+
+        user = User.objects.filter(email=email).first()
+
+        if user:
             if user.login_type != LOGIN_GOOGLE:
-                user.login_type = LOGIN_GOOGLE
-                user.save(update_fields=["login_type"])
+                raise ValidationError(
+                    "This email is registered with email/password. Please login using email and password."
+                )
+
             if not user.avatar and avatar:
                 user.avatar = avatar
                 user.save(update_fields=["avatar"])
 
-        refresh = RefreshToken.for_user(user)
-        return {"user": user, "access": str(refresh.access_token), "refresh": str(refresh)}
-    
-    @staticmethod
-    def refresh_tokens(refresh_token_obj):
-        new_access = str(refresh_token_obj.access_token)
-
-        new_refresh = None
-        if settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS"):
-            new_refresh_obj = RefreshToken.for_user(refresh_token_obj.user)
-            new_refresh = str(new_refresh_obj)
-
-            if settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION"):
-                try:
-                    refresh_token_obj.blacklist()
-                except Exception:
-                    pass
+        else:
+            user = User.objects.create(
+                email=email,
+                username=username,
+                avatar=avatar,
+                is_verified=True,
+                login_type=LOGIN_GOOGLE
+            )
 
         return {
-            "access": new_access,
-            "refresh": new_refresh
+            "user": user,
+            "requires_2fa": False
         }
+    
+    # =====================================================
+    # REFRESH TOKENS
+    # =====================================================
+    @staticmethod
+    def refresh_tokens(refresh_token_obj):
+        try:
+            user_id = refresh_token_obj.payload.get("user_id")
+
+            user = User.objects.filter(id=user_id).first()
+            if not user:
+                raise ValidationError("User not found")
+
+            if not user.is_active:
+                raise ValidationError("User is inactive")
+            
+            new_access = str(refresh_token_obj.access_token)
+
+            new_refresh = None
+
+            if settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS"):
+                new_refresh_obj = RefreshToken.for_user(user)
+                new_refresh = str(new_refresh_obj)
+
+                if settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION"):
+                    try:
+                        refresh_token_obj.blacklist()
+                    except Exception:
+                        pass
+
+            return {
+                "access": new_access,
+                "refresh": new_refresh
+            }
+
+        except Exception as e:
+            raise ValidationError(f"Token refresh failed: {str(e)}")
         

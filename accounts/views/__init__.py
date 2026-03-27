@@ -11,6 +11,7 @@ from .auth_views import (
     ResetPasswordView,
     ChangePasswordView,
     GoogleLoginView,
+    ResendVerificationView
 )
 
 # =========================================================
@@ -27,9 +28,7 @@ from .user_views import (
 from .api_key_views import (
     APIKeyListCreateView,
     APIKeyDetailView,
-    AdminAPIKeyListView,
-    AdminAPIKeyUpdateView,
-    AdminAPIKeyDeleteView,
+    VerifyAPIKeyView
 )
 
 # =========================================================

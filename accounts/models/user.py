@@ -132,23 +132,48 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
 # API KEY MODEL
 # =========================================================
 class APIKey(BaseModel):
-    key = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="api_keys"
-    )
-    name = models.CharField(max_length=255, null=True, blank=True)
+            User,
+            on_delete=models.CASCADE,
+            related_name="api_keys"
+        )
+    name = models.CharField(max_length=255, blank=True, null=True)
+    key_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    prefix = models.CharField(max_length=12, db_index=True, null=True, blank=True)
     usage_limit = models.PositiveIntegerField(default=1000)
     usage_count = models.PositiveIntegerField(default=0)
+
     expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["user"]),
-            models.Index(fields=["key"]),
+            models.Index(fields=["prefix"]),
         ]
 
     def __str__(self):
         return f"{self.user.username} - {self.name}"
+    
+    @staticmethod
+    def generate_key():
+        raw_key = f"sk_live_{secrets.token_urlsafe(32)}"
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        prefix = raw_key[:12]
+        return raw_key, key_hash, prefix
+    
+    @classmethod
+    def verify_key(cls, raw_key):
+        """
+        Verify raw key and return APIKey instance or None
+        """
+        if not raw_key:
+            return None
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        return cls.objects.filter(key_hash=key_hash).first()
+    
+    @staticmethod
+    def can_use(self):
+        if self.expires_at and self.expires_at <= timezone.now():
+            return False
+        return self.usage_count < self.usage_limit
     

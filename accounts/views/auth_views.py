@@ -84,7 +84,7 @@ class LoginView(BaseAPIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            result = AuthService.login_user(request, **serializer.validated_data)
+            result = AuthService.login_user(**serializer.validated_data)
             user = result["user"]
         except Exception as e:
             return self.error_response(message=str(e))
@@ -92,9 +92,13 @@ class LoginView(BaseAPIView):
         if result["requires_2fa"]:
             return self.success_response(
                 message="2FA required",
-                data={"requires_2fa": True, "user_id": user.id},
-                status_code=status.HTTP_200_OK
+                data={
+                    "requires_2fa": True,
+                    "user_id": user.id
+                }
             )
+
+        session_token, _ = create_user_session(request, user)
 
         tokens = AuthService.generate_tokens(user)
 
@@ -103,11 +107,10 @@ class LoginView(BaseAPIView):
             data={
                 "user": UserSerializer(user).data,
                 "access_token": tokens["access"],
-                "refresh_token": tokens["refresh"]
-            },
-            status_code=status.HTTP_200_OK
+                "refresh_token": tokens["refresh"],
+                "session_token": session_token
+            }
         )
-
 
 # =========================================================
 # VERIFY EMAIL
@@ -254,21 +257,23 @@ class GoogleLoginView(BaseAPIView):
         try:
             result = AuthService.google_login(serializer.validated_data["token"])
             user = result["user"]
-            session_token, session = create_user_session(request, user)
-            
         except Exception as e:
             return self.error_response(message=str(e))
+
+        session_token, _ = create_user_session(request, user)
+
+        tokens = AuthService.generate_tokens(user)
 
         return self.success_response(
             message="Google login successful",
             data={
                 "user": UserSerializer(user).data,
-                "access_token": result["access"],
-                "refresh_token": result["refresh"],
+                "access_token": tokens["access"],
+                "refresh_token": tokens["refresh"],
                 "session_token": session_token
             }
         )
-        
+
 # =========================================================
 # REFRESH TOKEN
 # =========================================================

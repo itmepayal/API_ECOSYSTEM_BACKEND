@@ -47,4 +47,3 @@ class LogoutAllSessionsSerializer(serializers.Serializer):
 # =========================================================
 class LogoutCurrentSessionSerializer(serializers.Serializer):
     confirm = serializers.BooleanField(required=False, default=True)
-    
